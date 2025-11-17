@@ -1,0 +1,144 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Fantasy Ops - Fantasy Sports Management</title>
+  <link rel="stylesheet" href="/css/styles.css">
+</head>
+<body>
+  <div id="app">
+    <!-- Navigation -->
+    <nav class="navbar">
+      <div class="nav-brand">
+        <h1>Fantasy Ops</h1>
+      </div>
+      <div class="nav-links" id="navLinks">
+        <a href="#" data-view="home" class="nav-link active">Home</a>
+        <a href="#" data-view="leagues" class="nav-link">Leagues</a>
+        <a href="#" data-view="teams" class="nav-link auth-required" style="display: none;">My Teams</a>
+        <a href="#" data-view="players" class="nav-link">Players</a>
+      </div>
+      <div class="nav-auth" id="authButtons">
+        <button id="loginBtn" class="btn btn-outline">Login</button>
+        <button id="registerBtn" class="btn btn-primary">Register</button>
+      </div>
+      <div class="nav-user" id="userMenu" style="display: none;">
+        <span id="userGreeting"></span>
+        <button id="logoutBtn" class="btn btn-outline">Logout</button>
+      </div>
+    </nav>
+
+    <!-- Main Content -->
+    <main class="main-content">
+      <!-- Home View -->
+      <div id="homeView" class="view active">
+        <div class="hero">
+          <h2>Welcome to Fantasy Ops</h2>
+          <p>Your ultimate fantasy sports management platform</p>
+          <div class="hero-actions">
+            <button id="heroRegister" class="btn btn-primary btn-lg">Get Started</button>
+            <button id="heroLeagues" class="btn btn-outline btn-lg">Browse Leagues</button>
+          </div>
+        </div>
+        <div class="features">
+          <div class="feature-card">
+            <h3>Create Leagues</h3>
+            <p>Start your own fantasy league and invite friends</p>
+          </div>
+          <div class="feature-card">
+            <h3>Draft Players</h3>
+            <p>Build your dream team from top NFL players</p>
+          </div>
+          <div class="feature-card">
+            <h3>Track Scores</h3>
+            <p>Real-time scoring and standings updates</p>
+          </div>
+          <div class="feature-card">
+            <h3>Trade & Manage</h3>
+            <p>Make trades and manage your roster</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- Leagues View -->
+      <div id="leaguesView" class="view">
+        <div class="view-header">
+          <h2>Fantasy Leagues</h2>
+          <button id="createLeagueBtn" class="btn btn-primary auth-required" style="display: none;">Create League</button>
+        </div>
+        <div class="filters">
+          <select id="sportFilter">
+            <option value="">All Sports</option>
+            <option value="football">Football</option>
+            <option value="basketball">Basketball</option>
+            <option value="baseball">Baseball</option>
+            <option value="hockey">Hockey</option>
+          </select>
+          <select id="statusFilter">
+            <option value="">All Status</option>
+            <option value="draft">Draft</option>
+            <option value="in_season">In Season</option>
+            <option value="playoffs">Playoffs</option>
+            <option value="offseason">Offseason</option>
+          </select>
+        </div>
+        <div id="leaguesList" class="leagues-list">
+          <p class="loading">Loading leagues...</p>
+        </div>
+      </div>
+
+      <!-- Teams View -->
+      <div id="teamsView" class="view">
+        <div class="view-header">
+          <h2>My Teams</h2>
+        </div>
+        <div id="teamsList" class="teams-list">
+          <p class="loading">Loading your teams...</p>
+        </div>
+      </div>
+
+      <!-- Players View -->
+      <div id="playersView" class="view">
+        <div class="view-header">
+          <h2>Player Database</h2>
+        </div>
+        <div class="filters">
+          <input type="text" id="playerSearch" placeholder="Search players..." class="search-input">
+          <select id="positionFilter">
+            <option value="">All Positions</option>
+            <option value="QB">Quarterback</option>
+            <option value="RB">Running Back</option>
+            <option value="WR">Wide Receiver</option>
+            <option value="TE">Tight End</option>
+            <option value="K">Kicker</option>
+            <option value="DST">Defense/ST</option>
+          </select>
+        </div>
+        <div id="playersList" class="players-list">
+          <p class="loading">Loading players...</p>
+        </div>
+      </div>
+
+      <!-- League Detail View -->
+      <div id="leagueDetailView" class="view">
+        <div id="leagueDetailContent"></div>
+      </div>
+
+      <!-- Team Detail View -->
+      <div id="teamDetailView" class="view">
+        <div id="teamDetailContent"></div>
+      </div>
+    </main>
+
+    <!-- Modals -->
+    <div id="modalOverlay" class="modal-overlay">
+      <div id="modalContent" class="modal-content">
+        <!-- Modal content will be injected here -->
+      </div>
+    </div>
+  </div>
+
+  <script src="/js/app.js"></script>
+</body>
+</html>
