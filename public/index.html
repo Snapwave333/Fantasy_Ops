@@ -15,6 +15,8 @@
       </div>
       <div class="nav-links" id="navLinks">
         <a href="#" data-view="home" class="nav-link active">Home</a>
+        <a href="#" data-view="news" class="nav-link">News</a>
+        <a href="#" data-view="media" class="nav-link">Media</a>
         <a href="#" data-view="leagues" class="nav-link">Leagues</a>
         <a href="#" data-view="teams" class="nav-link auth-required" style="display: none;">My Teams</a>
         <a href="#" data-view="players" class="nav-link">Players</a>
@@ -118,6 +120,50 @@
         <div id="playersList" class="players-list">
           <p class="loading">Loading players...</p>
         </div>
+      </div>
+
+      <!-- News View -->
+      <div id="newsView" class="view">
+        <div class="view-header">
+          <h2>Fantasy Football News</h2>
+        </div>
+        <div class="filters">
+          <select id="newsCategoryFilter">
+            <option value="">All Categories</option>
+            <option value="highlights">Highlights</option>
+            <option value="injuries">Injuries</option>
+            <option value="analysis">Analysis</option>
+            <option value="trades">Trades</option>
+            <option value="strategy">Strategy</option>
+            <option value="rookies">Rookies</option>
+          </select>
+          <label style="display: flex; align-items: center; gap: 0.5rem;">
+            <input type="checkbox" id="featuredOnly"> Featured Only
+          </label>
+        </div>
+        <div id="newsList" class="news-list">
+          <p class="loading">Loading news...</p>
+        </div>
+      </div>
+
+      <!-- Media View -->
+      <div id="mediaView" class="view">
+        <div class="view-header">
+          <h2>Photos & Videos</h2>
+        </div>
+        <div class="media-tabs">
+          <button class="media-tab active" data-type="all">All</button>
+          <button class="media-tab" data-type="image">Images</button>
+          <button class="media-tab" data-type="video">Videos</button>
+        </div>
+        <div id="mediaGallery" class="media-gallery">
+          <p class="loading">Loading media...</p>
+        </div>
+      </div>
+
+      <!-- News Article View -->
+      <div id="newsArticleView" class="view">
+        <div id="newsArticleContent"></div>
       </div>
 
       <!-- League Detail View -->

@@ -230,6 +230,12 @@ function showView(viewName) {
     case 'players':
       loadPlayers();
       break;
+    case 'news':
+      loadNews();
+      break;
+    case 'media':
+      loadMedia();
+      break;
   }
 }
 
@@ -653,6 +659,159 @@ async function addPlayerToTeam(teamId, playerId, position) {
   }
 }
 
+// News
+async function loadNews() {
+  const listEl = document.getElementById('newsList');
+  const category = document.getElementById('newsCategoryFilter').value;
+  const featuredOnly = document.getElementById('featuredOnly').checked;
+
+  listEl.innerHTML = '<p class="loading">Loading news...</p>';
+
+  try {
+    let url = '/news?limit=20';
+    if (category) url += `&category=${category}`;
+    if (featuredOnly) url += '&featured=true';
+
+    const response = await api(url);
+    const articles = response.data.articles;
+
+    if (articles.length === 0) {
+      listEl.innerHTML = `
+        <div class="empty-state">
+          <h4>No news articles found</h4>
+          <p>Check back later for updates!</p>
+        </div>
+      `;
+      return;
+    }
+
+    listEl.innerHTML = articles.map(article => `
+      <div class="news-card ${article.featured ? 'news-featured' : ''}" onclick="viewNewsArticle('${article.id}')">
+        ${article.image_url ? `<img src="${article.image_url}" alt="${escapeHtml(article.title)}" class="news-card-image" onerror="this.style.display='none'">` : ''}
+        <div class="news-card-content">
+          <span class="news-card-category">${article.category}</span>
+          <h3 class="news-card-title">${escapeHtml(article.title)}</h3>
+          <p class="news-card-summary">${escapeHtml(article.summary)}</p>
+          <div class="news-card-meta">
+            <span>By ${escapeHtml(article.author)}</span>
+            <span>${new Date(article.created_at).toLocaleDateString()}</span>
+          </div>
+        </div>
+      </div>
+    `).join('');
+  } catch (error) {
+    listEl.innerHTML = `<p class="error-message">${error.message}</p>`;
+  }
+}
+
+async function viewNewsArticle(articleId) {
+  const content = document.getElementById('newsArticleContent');
+  showView('newsArticle');
+  content.innerHTML = '<p class="loading">Loading article...</p>';
+
+  try {
+    const response = await api(`/news/${articleId}`);
+    const article = response.data.article;
+
+    content.innerHTML = `
+      <button class="btn btn-outline" onclick="showView('news')">&larr; Back to News</button>
+      <div class="news-article">
+        <div class="news-article-header">
+          <span class="news-card-category">${article.category}</span>
+          <h1 class="news-article-title">${escapeHtml(article.title)}</h1>
+          <div class="news-card-meta">
+            <span>By ${escapeHtml(article.author)}</span>
+            <span>${new Date(article.created_at).toLocaleDateString()}</span>
+            <span>${article.views} views</span>
+          </div>
+        </div>
+        ${article.image_url ? `<img src="${article.image_url}" alt="${escapeHtml(article.title)}" class="news-article-image" onerror="this.style.display='none'">` : ''}
+        <div class="news-article-content">
+          ${escapeHtml(article.content)}
+        </div>
+        ${article.video_url ? `
+          <div class="news-article-video">
+            <h4>Watch Video</h4>
+            <iframe src="${article.video_url}" allowfullscreen></iframe>
+          </div>
+        ` : ''}
+      </div>
+    `;
+  } catch (error) {
+    content.innerHTML = `<p class="error-message">${error.message}</p>`;
+  }
+}
+
+// Media Gallery
+let currentMediaType = 'all';
+
+async function loadMedia(type = null) {
+  if (type) currentMediaType = type;
+  const gallery = document.getElementById('mediaGallery');
+  gallery.innerHTML = '<p class="loading">Loading media...</p>';
+
+  try {
+    let url = '/media?limit=20';
+    if (currentMediaType && currentMediaType !== 'all') {
+      url = `/media/${currentMediaType}s?limit=20`;
+    }
+
+    const response = await api(url);
+    const items = currentMediaType === 'all' ? response.data.media :
+                  currentMediaType === 'image' ? response.data.images : response.data.videos;
+
+    if (!items || items.length === 0) {
+      gallery.innerHTML = `
+        <div class="empty-state">
+          <h4>No media found</h4>
+          <p>Check back later for more content!</p>
+        </div>
+      `;
+      return;
+    }
+
+    gallery.innerHTML = items.map(item => `
+      <div class="media-item" onclick="viewMedia('${item.id}', '${item.type}', '${item.url}', '${escapeHtml(item.title)}')">
+        <div class="media-thumbnail">
+          <img src="${item.thumbnail_url || item.url}" alt="${escapeHtml(item.title)}" onerror="this.src='https://images.unsplash.com/photo-1560272564-c83b66b1ad12?w=400'">
+          <span class="media-type-badge">${item.type}</span>
+          ${item.type === 'video' ? '<div class="media-play-icon">▶</div>' : ''}
+        </div>
+        <div class="media-info">
+          <div class="media-title">${escapeHtml(item.title)}</div>
+          <div class="media-description">${escapeHtml(item.description || '')}</div>
+        </div>
+      </div>
+    `).join('');
+  } catch (error) {
+    gallery.innerHTML = `<p class="error-message">${error.message}</p>`;
+  }
+}
+
+function viewMedia(id, type, url, title) {
+  if (type === 'video') {
+    showModal(`
+      <div class="modal-header">
+        <h3>${title}</h3>
+        <button class="modal-close" onclick="hideModal()">&times;</button>
+      </div>
+      <div class="video-player">
+        <iframe src="${url}" allowfullscreen></iframe>
+      </div>
+    `);
+  } else {
+    showModal(`
+      <div class="modal-header">
+        <h3>${title}</h3>
+        <button class="modal-close" onclick="hideModal()">&times;</button>
+      </div>
+      <div class="image-viewer">
+        <img src="${url}" alt="${title}">
+      </div>
+    `);
+  }
+}
+
 // Players
 async function loadPlayers() {
   const listEl = document.getElementById('playersList');
@@ -760,6 +919,19 @@ document.addEventListener('DOMContentLoaded', () => {
   document.getElementById('playerSearch').addEventListener('input', debounce(loadPlayers, 300));
   document.getElementById('positionFilter').addEventListener('change', loadPlayers);
 
+  // News filters
+  document.getElementById('newsCategoryFilter').addEventListener('change', loadNews);
+  document.getElementById('featuredOnly').addEventListener('change', loadNews);
+
+  // Media tabs
+  document.querySelectorAll('.media-tab').forEach(tab => {
+    tab.addEventListener('click', (e) => {
+      document.querySelectorAll('.media-tab').forEach(t => t.classList.remove('active'));
+      e.target.classList.add('active');
+      loadMedia(e.target.dataset.type);
+    });
+  });
+
   // Modal close on overlay click
   elements.modalOverlay.addEventListener('click', (e) => {
     if (e.target === elements.modalOverlay) {
@@ -784,3 +956,6 @@ window.showJoinLeagueModal = showJoinLeagueModal;
 window.showAddPlayerModal = showAddPlayerModal;
 window.loadAvailablePlayers = loadAvailablePlayers;
 window.addPlayerToTeam = addPlayerToTeam;
+window.viewNewsArticle = viewNewsArticle;
+window.viewMedia = viewMedia;
+window.loadMedia = loadMedia;
