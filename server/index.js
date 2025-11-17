@@ -15,8 +15,8 @@ const playerRoutes = require('./routes/players');
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-// Initialize database
-initDatabase();
+// Will be initialized async
+let dbInitialized = false;
 
 // Middleware
 app.use(cors());
@@ -51,8 +51,15 @@ app.get('*', (req, res) => {
 app.use(errorHandler);
 
 // Start server
-const server = app.listen(PORT, () => {
-  console.log(`
+const startServer = async () => {
+  try {
+    // Initialize database (async for sql.js)
+    await initDatabase();
+    dbInitialized = true;
+    console.log('Database initialized successfully');
+
+    const server = app.listen(PORT, () => {
+      console.log(`
 ╔════════════════════════════════════════════╗
 ║         Fantasy Ops Server Started         ║
 ╠════════════════════════════════════════════╣
@@ -60,16 +67,24 @@ const server = app.listen(PORT, () => {
 ║  Mode: ${(process.env.NODE_ENV || 'development').padEnd(36)}║
 ║  Time: ${new Date().toISOString().padEnd(36)}║
 ╚════════════════════════════════════════════╝
-  `);
-});
+      `);
+    });
 
-// Graceful shutdown
-process.on('SIGTERM', () => {
-  console.log('SIGTERM signal received: closing HTTP server');
-  server.close(() => {
-    console.log('HTTP server closed');
-    process.exit(0);
-  });
-});
+    // Graceful shutdown
+    process.on('SIGTERM', () => {
+      console.log('SIGTERM signal received: closing HTTP server');
+      server.close(() => {
+        console.log('HTTP server closed');
+        process.exit(0);
+      });
+    });
+  } catch (error) {
+    console.error('Failed to start server:', error);
+    process.exit(1);
+  }
+};
+
+// Start the server
+startServer();
 
 module.exports = app;

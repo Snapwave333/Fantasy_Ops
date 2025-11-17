@@ -1,43 +1,40 @@
-const { db } = require('../config/database');
+const { query, queryOne, run } = require('../config/database');
 const { v4: uuidv4 } = require('uuid');
 
 class League {
   static create({ name, description, sport, max_teams, scoring_type, draft_type, commissioner_id, season }) {
     const id = uuidv4();
 
-    const stmt = db.prepare(`
-      INSERT INTO leagues (id, name, description, sport, max_teams, scoring_type, draft_type, commissioner_id, season)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-    `);
-
-    stmt.run(
-      id,
-      name,
-      description || null,
-      sport || 'football',
-      max_teams || 12,
-      scoring_type || 'standard',
-      draft_type || 'snake',
-      commissioner_id,
-      season || new Date().getFullYear()
+    run(
+      'INSERT INTO leagues (id, name, description, sport, max_teams, scoring_type, draft_type, commissioner_id, season) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
+      [
+        id,
+        name,
+        description || null,
+        sport || 'football',
+        max_teams || 12,
+        scoring_type || 'standard',
+        draft_type || 'snake',
+        commissioner_id,
+        season || new Date().getFullYear()
+      ]
     );
 
     return this.findById(id);
   }
 
   static findById(id) {
-    const stmt = db.prepare(`
+    return queryOne(`
       SELECT l.*, u.username as commissioner_name,
              (SELECT COUNT(*) FROM teams WHERE league_id = l.id) as team_count
       FROM leagues l
       JOIN users u ON l.commissioner_id = u.id
       WHERE l.id = ?
-    `);
-    return stmt.get(id);
+    `, [id]);
   }
 
   static findAll({ sport, status, limit = 50, offset = 0 } = {}) {
-    let query = `
+    let sql = `
       SELECT l.*, u.username as commissioner_name,
              (SELECT COUNT(*) FROM teams WHERE league_id = l.id) as team_count
       FROM leagues l
@@ -47,24 +44,23 @@ class League {
     const params = [];
 
     if (sport) {
-      query += ' AND l.sport = ?';
+      sql += ' AND l.sport = ?';
       params.push(sport);
     }
 
     if (status) {
-      query += ' AND l.status = ?';
+      sql += ' AND l.status = ?';
       params.push(status);
     }
 
-    query += ' ORDER BY l.created_at DESC LIMIT ? OFFSET ?';
+    sql += ' ORDER BY l.created_at DESC LIMIT ? OFFSET ?';
     params.push(limit, offset);
 
-    const stmt = db.prepare(query);
-    return stmt.all(...params);
+    return query(sql, params);
   }
 
   static findByUser(userId) {
-    const stmt = db.prepare(`
+    return query(`
       SELECT DISTINCT l.*, u.username as commissioner_name,
              (SELECT COUNT(*) FROM teams WHERE league_id = l.id) as team_count
       FROM leagues l
@@ -72,8 +68,7 @@ class League {
       LEFT JOIN teams t ON t.league_id = l.id
       WHERE l.commissioner_id = ? OR t.owner_id = ?
       ORDER BY l.created_at DESC
-    `);
-    return stmt.all(userId, userId);
+    `, [userId, userId]);
   }
 
   static update(id, data) {
@@ -92,35 +87,29 @@ class League {
       return this.findById(id);
     }
 
-    updates.push('updated_at = CURRENT_TIMESTAMP');
+    updates.push('updated_at = datetime(\'now\')');
     values.push(id);
 
-    const stmt = db.prepare(`
-      UPDATE leagues SET ${updates.join(', ')} WHERE id = ?
-    `);
-
-    stmt.run(...values);
+    run(`UPDATE leagues SET ${updates.join(', ')} WHERE id = ?`, values);
     return this.findById(id);
   }
 
   static delete(id) {
-    const stmt = db.prepare('DELETE FROM leagues WHERE id = ?');
-    return stmt.run(id);
+    return run('DELETE FROM leagues WHERE id = ?', [id]);
   }
 
   static getTeams(leagueId) {
-    const stmt = db.prepare(`
+    return query(`
       SELECT t.*, u.username as owner_name
       FROM teams t
       JOIN users u ON t.owner_id = u.id
       WHERE t.league_id = ?
       ORDER BY t.wins DESC, t.points_for DESC
-    `);
-    return stmt.all(leagueId);
+    `, [leagueId]);
   }
 
   static getStandings(leagueId) {
-    const stmt = db.prepare(`
+    return query(`
       SELECT t.*, u.username as owner_name,
              (t.wins * 2 + t.ties) as points,
              CASE WHEN (t.wins + t.losses + t.ties) > 0
@@ -130,21 +119,23 @@ class League {
       JOIN users u ON t.owner_id = u.id
       WHERE t.league_id = ?
       ORDER BY points DESC, win_percentage DESC, t.points_for DESC
-    `);
-    return stmt.all(leagueId);
+    `, [leagueId]);
   }
 
   static canJoin(leagueId, userId) {
     const league = this.findById(leagueId);
-    if (!league) return { canJoin: false, reason: 'League not found' };
+    if (!league) {
+      return { canJoin: false, reason: 'League not found' };
+    }
 
     if (league.team_count >= league.max_teams) {
       return { canJoin: false, reason: 'League is full' };
     }
 
-    const existingTeam = db.prepare(
-      'SELECT id FROM teams WHERE league_id = ? AND owner_id = ?'
-    ).get(leagueId, userId);
+    const existingTeam = queryOne(
+      'SELECT id FROM teams WHERE league_id = ? AND owner_id = ?',
+      [leagueId, userId]
+    );
 
     if (existingTeam) {
       return { canJoin: false, reason: 'Already in this league' };

@@ -1,4 +1,4 @@
-const { db } = require('../config/database');
+const { query, queryOne, run } = require('../config/database');
 const bcrypt = require('bcryptjs');
 const { v4: uuidv4 } = require('uuid');
 
@@ -8,16 +8,13 @@ class User {
     const hashedPassword = await bcrypt.hash(password, 12);
 
     try {
-      const stmt = db.prepare(`
-        INSERT INTO users (id, username, email, password)
-        VALUES (?, ?, ?, ?)
-      `);
-
-      stmt.run(id, username.toLowerCase(), email.toLowerCase(), hashedPassword);
-
+      run(
+        'INSERT INTO users (id, username, email, password) VALUES (?, ?, ?, ?)',
+        [id, username.toLowerCase(), email.toLowerCase(), hashedPassword]
+      );
       return this.findById(id);
     } catch (error) {
-      if (error.code === 'SQLITE_CONSTRAINT') {
+      if (error.message && error.message.includes('UNIQUE constraint failed')) {
         if (error.message.includes('username')) {
           throw new Error('Username already exists');
         }
@@ -30,21 +27,18 @@ class User {
   }
 
   static findById(id) {
-    const stmt = db.prepare(`
-      SELECT id, username, email, created_at, updated_at
-      FROM users WHERE id = ?
-    `);
-    return stmt.get(id);
+    return queryOne(
+      'SELECT id, username, email, created_at, updated_at FROM users WHERE id = ?',
+      [id]
+    );
   }
 
   static findByEmail(email) {
-    const stmt = db.prepare('SELECT * FROM users WHERE email = ?');
-    return stmt.get(email.toLowerCase());
+    return queryOne('SELECT * FROM users WHERE email = ?', [email.toLowerCase()]);
   }
 
   static findByUsername(username) {
-    const stmt = db.prepare('SELECT * FROM users WHERE username = ?');
-    return stmt.get(username.toLowerCase());
+    return queryOne('SELECT * FROM users WHERE username = ?', [username.toLowerCase()]);
   }
 
   static async verifyPassword(plainPassword, hashedPassword) {
@@ -67,32 +61,24 @@ class User {
       return this.findById(id);
     }
 
-    updates.push('updated_at = CURRENT_TIMESTAMP');
+    updates.push('updated_at = datetime(\'now\')');
     values.push(id);
 
-    const stmt = db.prepare(`
-      UPDATE users SET ${updates.join(', ')} WHERE id = ?
-    `);
-
-    stmt.run(...values);
+    run(`UPDATE users SET ${updates.join(', ')} WHERE id = ?`, values);
     return this.findById(id);
   }
 
   static delete(id) {
-    const stmt = db.prepare('DELETE FROM users WHERE id = ?');
-    return stmt.run(id);
+    return run('DELETE FROM users WHERE id = ?', [id]);
   }
 
   static getStats(userId) {
-    const teamsStmt = db.prepare('SELECT COUNT(*) as count FROM teams WHERE owner_id = ?');
-    const leaguesStmt = db.prepare(`
-      SELECT COUNT(DISTINCT league_id) as count
-      FROM teams WHERE owner_id = ?
-    `);
+    const teamsResult = queryOne('SELECT COUNT(*) as count FROM teams WHERE owner_id = ?', [userId]);
+    const leaguesResult = queryOne('SELECT COUNT(DISTINCT league_id) as count FROM teams WHERE owner_id = ?', [userId]);
 
     return {
-      totalTeams: teamsStmt.get(userId).count,
-      totalLeagues: leaguesStmt.get(userId).count
+      totalTeams: teamsResult ? teamsResult.count : 0,
+      totalLeagues: leaguesResult ? leaguesResult.count : 0
     };
   }
 }

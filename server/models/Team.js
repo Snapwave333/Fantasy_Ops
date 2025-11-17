@@ -1,20 +1,18 @@
-const { db } = require('../config/database');
+const { query, queryOne, run } = require('../config/database');
 const { v4: uuidv4 } = require('uuid');
 
 class Team {
   static create({ name, league_id, owner_id }) {
     const id = uuidv4();
 
-    const stmt = db.prepare(`
-      INSERT INTO teams (id, name, league_id, owner_id)
-      VALUES (?, ?, ?, ?)
-    `);
-
     try {
-      stmt.run(id, name, league_id, owner_id);
+      run(
+        'INSERT INTO teams (id, name, league_id, owner_id) VALUES (?, ?, ?, ?)',
+        [id, name, league_id, owner_id]
+      );
       return this.findById(id);
     } catch (error) {
-      if (error.code === 'SQLITE_CONSTRAINT') {
+      if (error.message && error.message.includes('UNIQUE constraint failed')) {
         throw new Error('User already has a team in this league');
       }
       throw error;
@@ -22,37 +20,34 @@ class Team {
   }
 
   static findById(id) {
-    const stmt = db.prepare(`
+    return queryOne(`
       SELECT t.*, u.username as owner_name, l.name as league_name
       FROM teams t
       JOIN users u ON t.owner_id = u.id
       JOIN leagues l ON t.league_id = l.id
       WHERE t.id = ?
-    `);
-    return stmt.get(id);
+    `, [id]);
   }
 
   static findByUser(userId) {
-    const stmt = db.prepare(`
+    return query(`
       SELECT t.*, u.username as owner_name, l.name as league_name, l.sport
       FROM teams t
       JOIN users u ON t.owner_id = u.id
       JOIN leagues l ON t.league_id = l.id
       WHERE t.owner_id = ?
       ORDER BY t.created_at DESC
-    `);
-    return stmt.all(userId);
+    `, [userId]);
   }
 
   static findByLeague(leagueId) {
-    const stmt = db.prepare(`
+    return query(`
       SELECT t.*, u.username as owner_name
       FROM teams t
       JOIN users u ON t.owner_id = u.id
       WHERE t.league_id = ?
       ORDER BY t.wins DESC, t.points_for DESC
-    `);
-    return stmt.all(leagueId);
+    `, [leagueId]);
   }
 
   static update(id, data) {
@@ -71,24 +66,19 @@ class Team {
       return this.findById(id);
     }
 
-    updates.push('updated_at = CURRENT_TIMESTAMP');
+    updates.push('updated_at = datetime(\'now\')');
     values.push(id);
 
-    const stmt = db.prepare(`
-      UPDATE teams SET ${updates.join(', ')} WHERE id = ?
-    `);
-
-    stmt.run(...values);
+    run(`UPDATE teams SET ${updates.join(', ')} WHERE id = ?`, values);
     return this.findById(id);
   }
 
   static delete(id) {
-    const stmt = db.prepare('DELETE FROM teams WHERE id = ?');
-    return stmt.run(id);
+    return run('DELETE FROM teams WHERE id = ?', [id]);
   }
 
   static getRoster(teamId) {
-    const stmt = db.prepare(`
+    return query(`
       SELECT r.*, p.name as player_name, p.position, p.team as nfl_team,
              p.avg_points, p.total_points, p.games_played, p.status, p.bye_week
       FROM rosters r
@@ -105,39 +95,37 @@ class Team {
           ELSE 7
         END,
         p.avg_points DESC
-    `);
-    return stmt.all(teamId);
+    `, [teamId]);
   }
 
   static addPlayer(teamId, playerId, rosterPosition) {
     const id = uuidv4();
 
-    // Check if player is already on a team in the same league
     const team = this.findById(teamId);
-    if (!team) throw new Error('Team not found');
+    if (!team) {
+      throw new Error('Team not found');
+    }
 
-    const existingRoster = db.prepare(`
+    const existingRoster = queryOne(`
       SELECT r.id FROM rosters r
       JOIN teams t ON r.team_id = t.id
       WHERE r.player_id = ? AND t.league_id = ?
-    `).get(playerId, team.league_id);
+    `, [playerId, team.league_id]);
 
     if (existingRoster) {
       throw new Error('Player is already on a team in this league');
     }
 
-    const stmt = db.prepare(`
-      INSERT INTO rosters (id, team_id, player_id, roster_position)
-      VALUES (?, ?, ?, ?)
-    `);
+    run(
+      'INSERT INTO rosters (id, team_id, player_id, roster_position) VALUES (?, ?, ?, ?)',
+      [id, teamId, playerId, rosterPosition]
+    );
 
-    stmt.run(id, teamId, playerId, rosterPosition);
     return this.getRoster(teamId);
   }
 
   static removePlayer(teamId, playerId) {
-    const stmt = db.prepare('DELETE FROM rosters WHERE team_id = ? AND player_id = ?');
-    const result = stmt.run(teamId, playerId);
+    const result = run('DELETE FROM rosters WHERE team_id = ? AND player_id = ?', [teamId, playerId]);
 
     if (result.changes === 0) {
       throw new Error('Player not found on team roster');
@@ -147,11 +135,10 @@ class Team {
   }
 
   static updateRosterPosition(teamId, playerId, newPosition) {
-    const stmt = db.prepare(`
-      UPDATE rosters SET roster_position = ? WHERE team_id = ? AND player_id = ?
-    `);
-
-    const result = stmt.run(newPosition, teamId, playerId);
+    const result = run(
+      'UPDATE rosters SET roster_position = ? WHERE team_id = ? AND player_id = ?',
+      [newPosition, teamId, playerId]
+    );
 
     if (result.changes === 0) {
       throw new Error('Player not found on team roster');
@@ -161,22 +148,20 @@ class Team {
   }
 
   static getWeeklyScore(teamId, week, season) {
-    const stmt = db.prepare(`
-      SELECT * FROM weekly_scores
-      WHERE team_id = ? AND week = ? AND season = ?
-    `);
-    return stmt.get(teamId, week, season);
+    return queryOne(
+      'SELECT * FROM weekly_scores WHERE team_id = ? AND week = ? AND season = ?',
+      [teamId, week, season]
+    );
   }
 
   static recordWeeklyScore(teamId, week, season, points, opponentId = null, result = null) {
     const id = uuidv4();
 
-    const stmt = db.prepare(`
-      INSERT OR REPLACE INTO weekly_scores (id, team_id, week, season, points, opponent_id, result)
-      VALUES (?, ?, ?, ?, ?, ?, ?)
-    `);
+    run(
+      'INSERT OR REPLACE INTO weekly_scores (id, team_id, week, season, points, opponent_id, result) VALUES (?, ?, ?, ?, ?, ?, ?)',
+      [id, teamId, week, season, points, opponentId, result]
+    );
 
-    stmt.run(id, teamId, week, season, points, opponentId, result);
     return this.getWeeklyScore(teamId, week, season);
   }
 }
